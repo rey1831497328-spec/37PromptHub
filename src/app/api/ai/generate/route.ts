@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
-// 使用 DeepSeek Chat 模型
-const FREE_MODEL = 'deepseek/deepseek-chat-v3:free';
+// 使用能工作的模型
+const FREE_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
 
 export async function POST(request: NextRequest) {
   if (!OPENROUTER_API_KEY) {
