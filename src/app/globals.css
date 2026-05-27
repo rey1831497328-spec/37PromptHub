@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+:root {
+  /* 极简白灰主题 */
+  --background: #fafafa;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --primary: #171717;
+  --primary-foreground: #fafafa;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #525252;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #171717;
+  --accent-foreground: #fafafa;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #171717;
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  
+  /* 精选字体 */
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
+    font-weight: 500;
+  }
+}
+
+/* 极简滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a3a3a3;
+}
+
+/* 极简卡片悬浮效果 */
+.card-minimal {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-minimal:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* 极简按钮 */
+.btn-minimal {
+  transition: all 0.15s ease;
+}
+
+.btn-minimal:hover {
+  background-color: #171717;
+  color: #fafafa;
+}
+
+/* 分隔线动画 */
+.divider-animate {
+  position: relative;
+  overflow: hidden;
+}
+
+.divider-animate::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: #171717;
+  transition: width 0.3s ease;
+}
+
+.divider-animate:hover::after {
+  width: 100%;
+}
+
+/* 文字选中效果 */
+::selection {
+  background: #171717;
+  color: #fafafa;
+}
+
+/* 代码字体 */
+.font-mono {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+/* 极简单选框 */
+input:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px #171717;
+}
