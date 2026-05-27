@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import SearchBar from "@/components/SearchBar";
 import PromptCard from "@/components/PromptCard";
 import CategoryCard from "@/components/CategoryCard";
 import AIPromptGenerator from "@/components/AIPromptGenerator";
 import PromptRandomizer from "@/components/PromptRandomizer";
-import { fetchCategories, fetchPrompts, searchPrompts, Prompt, Category } from "@/lib/data";
+import { fetchCategories, fetchPrompts, fetchTrendingPrompts, searchPrompts, Prompt, Category } from "@/lib/data";
 import { ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -39,21 +39,21 @@ function PromptSkeleton() {
 
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [allPrompts, setAllPrompts] = useState<Prompt[]>([]);
+  const [trendingPrompts, setTrendingPrompts] = useState<Prompt[]>([]);
   const [searchResults, setSearchResults] = useState<Prompt[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 初始加载分类和提示词
+  // 初始加载分类和热门提示词（分开加载，避免一次请求过多数据）
   useEffect(() => {
     async function loadData() {
       try {
-        const [cats, prompts] = await Promise.all([
+        const [cats, trending] = await Promise.all([
           fetchCategories(),
-          fetchPrompts(),
+          fetchTrendingPrompts(6),
         ]);
         setCategories(cats);
-        setAllPrompts(prompts);
+        setTrendingPrompts(trending);
       } catch (error) {
         console.error('加载数据失败:', error);
       } finally {
@@ -73,9 +73,6 @@ export default function Home() {
       setSearchResults([]);
     }
   };
-
-  // 使用 useMemo 优化热门提示词计算
-  const trendingPrompts = useMemo(() => allPrompts.slice(0, 6), [allPrompts]);
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
