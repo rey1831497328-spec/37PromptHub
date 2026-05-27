@@ -52,9 +52,9 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('BazaarLink API error:', errorText);
+      console.error('BazaarLink API error:', response.status, errorText);
       return NextResponse.json(
-        { error: 'AI服务调用失败' },
+        { error: `AI服务调用失败 (${response.status}): ${errorText}` },
         { status: 500 }
       );
     }
