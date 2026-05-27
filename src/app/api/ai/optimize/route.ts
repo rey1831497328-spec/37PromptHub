@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
+// 使用可靠的免费模型
+const FREE_MODEL = 'google/gemma-3-4b-it:free';
+
 export async function POST(request: NextRequest) {
   if (!OPENROUTER_API_KEY) {
     return NextResponse.json(
@@ -42,7 +45,7 @@ export async function POST(request: NextRequest) {
         'X-Title': '37PromptHub',
       },
       body: JSON.stringify({
-        model: 'nvidia/nemotron-3-nano-3b-instruct:free',
+        model: FREE_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -54,9 +57,9 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenRouter API error:', response.status, errorText.substring(0, 200));
+      console.error('OpenRouter API error:', response.status, errorText.substring(0, 500));
       return NextResponse.json(
-        { error: `AI服务调用失败 (${response.status})` },
+        { error: `AI服务调用失败 (${response.status}): ${errorText.substring(0, 100)}` },
         { status: 500 }
       );
     }
