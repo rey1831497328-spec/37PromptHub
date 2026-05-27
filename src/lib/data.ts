@@ -177,73 +177,70 @@ export async function getPromptsByCategory(categoryId: string): Promise<Prompt[]
   return (data || []).map(mapDbPromptToPrompt);
 }
 
-/** 搜索提示词 - 优化版：限制搜索范围，提高性能 */
+/** 搜索提示词 - 改进版：更好的优先级排序 */
 export async function searchPrompts(query: string, maxResults: number = 20): Promise<Prompt[]> {
   if (!query.trim()) return [];
 
-  const searchTerm = query.trim();
+  const searchTerm = query.trim().toLowerCase();
+  const keywords = searchTerm.split(/[\s,，、]+/).filter(k => k.length > 0);
   
-  // 使用数据库级别的 ILIKE 搜索，限制结果数量
-  const { data, error } = await supabase
+  if (keywords.length === 0) return [];
+
+  // 获取所有提示词进行评分排序
+  const { data: allPrompts, error } = await supabase
     .from('prompts')
     .select('*')
-    .or(`title.ilike.%${searchTerm}%,prompt_cn.ilike.%${searchTerm}%,prompt.ilike.%${searchTerm}%`)
-    .limit(maxResults); // 限制搜索结果数量
+    .limit(500); // 限制搜索范围
 
-  if (error) {
-    console.error('搜索提示词失败:', error.message);
+  if (error || !allPrompts) {
+    console.error('搜索提示词失败:', error?.message);
     return [];
   }
 
-  // 如果数据库搜索结果不够，进行内存中的模糊匹配补充
-  let results = (data || []).map(mapDbPromptToPrompt);
-  
-  // 如果结果少于预期，进行模糊搜索补充
-  if (results.length < maxResults) {
-    const { data: allData } = await supabase
-      .from('prompts')
-      .select('*')
-      .limit(100); // 只取前100条进行模糊匹配
-
-    if (allData) {
-      const existingIds = new Set(results.map(p => p.id));
-      const keywords = searchTerm.toLowerCase().split(/[\s,，、]+/).filter(k => k.length > 0);
-      
-      const fuzzyMatches = (allData || [])
-        .filter(p => !existingIds.has(p.id as string))
-        .map(p => ({
-          prompt: p,
-          score: calculateMatchScore(p, keywords)
-        }))
-        .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, maxResults - results.length)
-        .map(item => mapDbPromptToPrompt(item.prompt));
-      
-      results = [...results, ...fuzzyMatches];
-    }
-  }
-
-  return results;
-}
-
-/** 计算模糊匹配分数 */
-function calculateMatchScore(prompt: Record<string, unknown>, keywords: string[]): number {
-  const searchFields = [
-    (prompt.title as string || '').toLowerCase(),
-    (prompt.prompt_cn as string || '').toLowerCase(),
-    (prompt.prompt as string || '').toLowerCase(),
-  ];
-  
-  let score = 0;
-  for (const field of searchFields) {
+  // 计算匹配分数
+  const scoredPrompts = allPrompts.map(p => {
+    const title = (p.title as string || '').toLowerCase();
+    const promptText = (p.prompt as string || '').toLowerCase();
+    const promptCn = (p.prompt_cn as string || '').toLowerCase();
+    
+    let score = 0;
+    let matchCount = 0;
+    
     for (const keyword of keywords) {
-      if (field.includes(keyword)) {
-        score += field === (prompt.title as string || '').toLowerCase() ? 10 : 1;
+      // 标题匹配权重最高
+      if (title === keyword) {
+        score += 100; // 完全匹配标题
+        matchCount++;
+      } else if (title.includes(keyword)) {
+        score += 50; // 标题包含关键词
+        matchCount++;
+      }
+      
+      // 中文提示词匹配
+      if (promptCn.includes(keyword)) {
+        score += 20;
+        matchCount++;
+      }
+      
+      // 英文提示词匹配
+      if (promptText.includes(keyword)) {
+        score += 10;
+        matchCount++;
       }
     }
-  }
-  return score;
+    
+    // 关键词匹配越多，额外加分
+    score += matchCount * 5;
+    
+    return { prompt: p, score };
+  });
+
+  // 过滤掉分数为0的，按分数排序，取前N个
+  return scoredPrompts
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxResults)
+    .map(item => mapDbPromptToPrompt(item.prompt));
 }
 
 /** 按 ID 获取单条提示词 */

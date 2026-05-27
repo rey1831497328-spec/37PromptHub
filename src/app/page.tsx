@@ -7,8 +7,8 @@ import PromptCard from "@/components/PromptCard";
 import CategoryCard from "@/components/CategoryCard";
 import AIPromptGenerator from "@/components/AIPromptGenerator";
 import PromptRandomizer from "@/components/PromptRandomizer";
-import { fetchCategories, fetchPrompts, fetchTrendingPrompts, searchPrompts, Prompt, Category } from "@/lib/data";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { fetchCategories, fetchTrendingPrompts, searchPrompts, Prompt, Category } from "@/lib/data";
+import { ArrowRight, Loader2, X } from "lucide-react";
 import Link from "next/link";
 
 // 骨架屏组件
@@ -42,9 +42,10 @@ export default function Home() {
   const [trendingPrompts, setTrendingPrompts] = useState<Prompt[]>([]);
   const [searchResults, setSearchResults] = useState<Prompt[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // 初始加载分类和热门提示词（分开加载，避免一次请求过多数据）
+  // 初始加载分类和热门提示词
   useEffect(() => {
     async function loadData() {
       try {
@@ -64,6 +65,7 @@ export default function Home() {
   }, []);
 
   const handleSearch = async (query: string) => {
+    setSearchQuery(query);
     if (query.trim()) {
       setIsSearching(true);
       const results = await searchPrompts(query);
@@ -72,6 +74,12 @@ export default function Home() {
       setIsSearching(false);
       setSearchResults([]);
     }
+  };
+
+  const clearSearch = () => {
+    setIsSearching(false);
+    setSearchResults([]);
+    setSearchQuery("");
   };
 
   return (
@@ -99,6 +107,41 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Search Results - 直接在搜索框下方显示 */}
+      {isSearching && (
+        <section className="py-8 border-t border-[#e5e5e5] bg-white">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-medium text-[#171717]">
+                  "{searchQuery}" 的搜索结果
+                </h2>
+                <span className="text-sm text-[#a3a3a3]">{searchResults.length} 个结果</span>
+              </div>
+              <button
+                onClick={clearSearch}
+                className="flex items-center gap-1 text-sm text-[#737373] hover:text-[#171717] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#f5f5f5]"
+              >
+                <X className="w-4 h-4" />
+                清除搜索
+              </button>
+            </div>
+            {searchResults.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {searchResults.map((prompt) => (
+                  <PromptCard key={prompt.id} prompt={prompt} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 bg-[#fafafa] rounded-lg">
+                <p className="text-[#a3a3a3]">未找到与 "{searchQuery}" 相关的提示词</p>
+                <p className="text-sm text-[#737373] mt-2">试试其他关键词，如：画质、风格、人物</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* AI Prompt Generator Section */}
       <section className="py-8 border-t border-[#e5e5e5]">
@@ -154,30 +197,7 @@ export default function Home() {
             </div>
           </section>
         </>
-      ) : isSearching ? (
-        /* Search Results */
-        <section className="py-12">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-medium text-[#171717]">
-                搜索结果
-              </h2>
-              <span className="text-sm text-[#a3a3a3]">{searchResults.length} 个结果</span>
-            </div>
-            {searchResults.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {searchResults.map((prompt) => (
-                  <PromptCard key={prompt.id} prompt={prompt} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16">
-                <p className="text-[#a3a3a3]">未找到相关提示词</p>
-              </div>
-            )}
-          </div>
-        </section>
-      ) : (
+      ) : !isSearching ? (
         <>
           {/* Categories Section */}
           <section className="py-12 border-t border-[#e5e5e5]">
@@ -221,7 +241,7 @@ export default function Home() {
             </div>
           </section>
         </>
-      )}
+      ) : null}
 
       {/* Footer */}
       <footer className="border-t border-[#e5e5e5] py-8 mt-12">
