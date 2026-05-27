@@ -4,14 +4,14 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Shuffle, Copy, Check, ChevronRight, RefreshCw, Sparkles, Zap, Cpu, Layers, Loader2 } from 'lucide-react';
 import { getPromptsByCategory, getSubCategories, Prompt } from '@/lib/data';
 
-// 6个槽位配置 - 欧美风格配色
+// 6个槽位配置 - 中英双语
 const SLOTS = [
-  { key: 'quality', label: 'Quality', categoryIds: ['quality'], gradient: 'from-slate-50 to-white', border: 'border-slate-200', color: '#475569', icon: Layers },
-  { key: 'style', label: 'Style', categoryIds: ['style'], gradient: 'from-indigo-50 to-white', border: 'border-indigo-200', color: '#6366f1', icon: Sparkles },
-  { key: 'charType', label: 'Character', categoryIds: ['appearance'], gradient: 'from-violet-50 to-white', border: 'border-violet-200', color: '#8b5cf6', icon: Cpu },
-  { key: 'clothing', label: 'Outfit', categoryIds: ['clothing'], gradient: 'from-amber-50 to-white', border: 'border-amber-200', color: '#d97706', icon: Layers },
-  { key: 'pose', label: 'Pose', categoryIds: ['pose'], gradient: 'from-rose-50 to-white', border: 'border-rose-200', color: '#e11d48', icon: Zap },
-  { key: 'expression', label: 'Mood', categoryIds: ['expression'], gradient: 'from-emerald-50 to-white', border: 'border-emerald-200', color: '#059669', icon: Sparkles },
+  { key: 'quality', label: 'Quality · 画质', categoryIds: ['quality'], gradient: 'from-slate-50 to-white', border: 'border-slate-200', color: '#475569', icon: Layers },
+  { key: 'style', label: 'Style · 风格', categoryIds: ['style'], gradient: 'from-indigo-50 to-white', border: 'border-indigo-200', color: '#6366f1', icon: Sparkles },
+  { key: 'charType', label: 'Character · 人物', categoryIds: ['appearance'], gradient: 'from-violet-50 to-white', border: 'border-violet-200', color: '#8b5cf6', icon: Cpu },
+  { key: 'clothing', label: 'Outfit · 服饰', categoryIds: ['clothing'], gradient: 'from-amber-50 to-white', border: 'border-amber-200', color: '#d97706', icon: Layers },
+  { key: 'pose', label: 'Pose · 姿势', categoryIds: ['pose'], gradient: 'from-rose-50 to-white', border: 'border-rose-200', color: '#e11d48', icon: Zap },
+  { key: 'expression', label: 'Mood · 表情', categoryIds: ['expression'], gradient: 'from-emerald-50 to-white', border: 'border-emerald-200', color: '#059669', icon: Sparkles },
 ];
 
 interface SlotResult {
@@ -44,15 +44,16 @@ function LoadingState() {
   const [progress, setProgress] = useState(0);
   
   useEffect(() => {
+    // 进度条速度调慢 - 每次增加更少，间隔更长
     const interval = setInterval(() => {
       setProgress(p => {
         if (p >= 100) {
           clearInterval(interval);
           return 100;
         }
-        return Math.min(p + Math.random() * 8 + 2, 100);
+        return Math.min(p + Math.random() * 4 + 1, 100);
       });
-    }, 120);
+    }, 200); // 间隔从120ms增加到200ms
     return () => clearInterval(interval);
   }, []);
 
@@ -63,16 +64,16 @@ function LoadingState() {
         <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
       </div>
 
-      {/* 加载文字 */}
+      {/* 加载文字 - 中英双语 */}
       <div className="text-center">
-        <div className="text-sm font-medium text-slate-600 mb-1">Loading Prompts...</div>
+        <div className="text-sm font-medium text-slate-600 mb-1">正在加载提示词...</div>
         <div className="text-2xl font-semibold text-slate-800 tabular-nums">{Math.floor(progress)}%</div>
       </div>
 
-      {/* 简约进度条 */}
-      <div className="w-72 h-2 bg-slate-100 rounded-full overflow-hidden">
+      {/* 简约进度条 - 更宽更显眼 */}
+      <div className="w-80 h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
         <div 
-          className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-150 ease-out"
+          className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-300 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -323,11 +324,11 @@ export default function PromptRandomizer() {
   return (
     <section className="py-12 border-t border-slate-200">
       <div className="max-w-6xl mx-auto px-6">
-        {/* 标题栏 - 欧美风格 */}
+        {/* 标题栏 - 中英双语 */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">Prompt Mixer</h2>
-            <p className="text-sm text-slate-500 mt-1">Randomly combine prompts from different categories</p>
+            <h2 className="text-xl font-semibold text-slate-900">Prompt Mixer · 提示词混合器</h2>
+            <p className="text-sm text-slate-500 mt-1">随机组合不同类别的提示词</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -342,12 +343,12 @@ export default function PromptRandomizer() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading...
+                  加载中...
                 </>
               ) : (
                 <>
                   <Shuffle className="w-4 h-4" />
-                  Randomize All
+                  全部随机
                 </>
               )}
             </button>
@@ -363,7 +364,7 @@ export default function PromptRandomizer() {
               }`}
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied!' : 'Copy All'}
+              {copied ? '已复制!' : '复制全部'}
             </button>
           </div>
         </div>
@@ -455,7 +456,7 @@ export default function PromptRandomizer() {
                         {isSpinning ? (
                           <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
                         ) : (
-                          <span className="text-xs text-slate-300 font-medium">Click to start</span>
+                          <span className="text-xs text-slate-300 font-medium">点击开始</span>
                         )}
                       </div>
                     )}
@@ -473,7 +474,7 @@ export default function PromptRandomizer() {
           </div>
         )}
 
-        {/* 组合预览 - 欧美风格 */}
+        {/* 组合预览 - 中英双语 */}
         {initialized && (
           <div className={`mt-5 p-4 bg-slate-50 border border-slate-200 rounded-lg transition-all duration-300 ${
             showSuccess 
@@ -489,13 +490,13 @@ export default function PromptRandomizer() {
                     showSuccess ? 'text-white' : 'text-slate-500'
                   }`} />
                 </div>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Combined Prompt</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Combined · 组合结果</span>
               </div>
               <button
                 onClick={copyCombined}
                 className="text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors px-3 py-1.5 rounded-md hover:bg-white border border-transparent hover:border-slate-200"
               >
-                {copied ? 'Copied!' : 'Copy'}
+                {copied ? '已复制!' : '复制'}
               </button>
             </div>
             <p className="text-xs text-slate-600 font-mono leading-relaxed break-all bg-white p-3 rounded border border-slate-100">
