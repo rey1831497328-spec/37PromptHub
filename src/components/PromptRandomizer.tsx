@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Shuffle, Copy, Check, ChevronRight, RefreshCw, Sparkles, Zap, Cpu, Layers, Loader2 } from 'lucide-react';
 import { getPromptsByCategory, getSubCategories, Prompt } from '@/lib/data';
 
-// 6个槽位配置 - 中英双语
+// 6个槽位配置
 const SLOTS = [
   { key: 'quality', label: 'Quality · 画质', categoryIds: ['quality'], gradient: 'from-slate-50 to-white', border: 'border-slate-200', color: '#475569', icon: Layers },
   { key: 'style', label: 'Style · 风格', categoryIds: ['style'], gradient: 'from-indigo-50 to-white', border: 'border-indigo-200', color: '#6366f1', icon: Sparkles },
@@ -20,16 +20,74 @@ interface SlotResult {
   promptCn?: string;
 }
 
-// 简约骨架屏 - 欧美风格
+// 缓存机制
+const promptsCache = new Map<string, Prompt[]>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5分钟
+
+function getCachedPrompts(key: string): Prompt[] | null {
+  const cached = promptsCache.get(key);
+  if (cached && Date.now() - (cached as unknown as { timestamp: number }).timestamp < CACHE_DURATION) {
+    return cached;
+  }
+  return null;
+}
+
+// 优化后的并行加载函数
+async function loadSlotPrompts(slot: typeof SLOTS[0]): Promise<Prompt[]> {
+  const cacheKey = `slot_${slot.key}`;
+  const cached = getCachedPrompts(cacheKey);
+  if (cached) return cached;
+
+  let allPrompts: Prompt[] = [];
+
+  if (slot.key === 'charType') {
+    // 人物类型：获取所有子分类的经典形象
+    const subCategories = await getSubCategories('appearance');
+    // 并行获取所有子分类的提示词
+    const results = await Promise.all(
+      subCategories.map(sub => getPromptsByCategory(sub.id))
+    );
+    // 合并并过滤
+    allPrompts = results.flat().filter(p => 
+      p.title.includes('经典') && 
+      p.title.includes('形象') &&
+      !p.title.includes('女王')
+    );
+  } else if (slot.key === 'pose') {
+    // 姿势：获取所有子分类，排除战斗姿势
+    const subCategories = await getSubCategories(slot.categoryIds[0]);
+    const nonCombatSubs = subCategories.filter(s => s.id !== 'pose-combat');
+    // 并行获取所有子分类的提示词
+    const results = await Promise.all(
+      nonCombatSubs.map(sub => getPromptsByCategory(sub.id))
+    );
+    allPrompts = results.flat();
+  } else {
+    // 其他：获取子分类或直接获取
+    const subCategories = await getSubCategories(slot.categoryIds[0]);
+    if (subCategories.length > 0) {
+      const results = await Promise.all(
+        subCategories.map(sub => getPromptsByCategory(sub.id))
+      );
+      allPrompts = results.flat();
+    } else {
+      allPrompts = await getPromptsByCategory(slot.categoryIds[0]);
+    }
+  }
+
+  // 存入缓存
+  promptsCache.set(cacheKey, allPrompts);
+  return allPrompts;
+}
+
+// 骨架屏
 function SlotSkeleton({ index }: { index: number }) {
   return (
     <div className="w-[140px] h-[100px] rounded-lg border border-slate-200 bg-slate-50 p-3 relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
-      
       <div className="flex items-center justify-between mb-3">
         <div className="h-2.5 w-16 bg-slate-200 rounded animate-pulse" />
       </div>
-      
       <div className="space-y-2">
         <div className="h-3.5 bg-slate-200 rounded w-full animate-pulse" />
         <div className="h-2.5 bg-slate-200 rounded w-4/5 animate-pulse" />
@@ -39,79 +97,21 @@ function SlotSkeleton({ index }: { index: number }) {
   );
 }
 
-// 简约加载动画 - 欧美风格
-function LoadingState() {
-  const [progress, setProgress] = useState(0);
-  
-  useEffect(() => {
-    // 进度条速度调慢 - 每次增加更少，间隔更长
-    const interval = setInterval(() => {
-      setProgress(p => {
-        if (p >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return Math.min(p + Math.random() * 4 + 1, 100);
-      });
-    }, 200); // 间隔从120ms增加到200ms
-    return () => clearInterval(interval);
-  }, []);
-
+// 加载动画
+function LoadingState({ progress }: { progress: number }) {
   return (
-    <div className="flex flex-col items-center gap-5 py-10">
-      {/* 简约加载图标 */}
-      <div className="relative">
-        <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
-      </div>
-
-      {/* 加载文字 - 中英双语 */}
+    <div className="flex flex-col items-center gap-4 py-6">
+      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
       <div className="text-center">
         <div className="text-sm font-medium text-slate-600 mb-1">正在加载提示词...</div>
-        <div className="text-2xl font-semibold text-slate-800 tabular-nums">{Math.floor(progress)}%</div>
+        <div className="text-xl font-semibold text-slate-800 tabular-nums">{progress}%</div>
       </div>
-
-      {/* 简约进度条 - 更宽更显眼 */}
-      <div className="w-80 h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+      <div className="w-64 h-2 bg-slate-100 rounded-full overflow-hidden">
         <div 
-          className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-300 ease-out"
+          className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-200"
           style={{ width: `${progress}%` }}
         />
       </div>
-
-      {/* 简约步骤指示器 */}
-      <div className="flex items-center gap-2">
-        {SLOTS.map((slot, i) => {
-          const Icon = slot.icon;
-          const isActive = progress > (i + 1) * 14;
-          return (
-            <div 
-              key={slot.key}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 ${
-                isActive 
-                  ? 'bg-slate-800 text-white' 
-                  : 'bg-slate-100 text-slate-300'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// 成功脉冲效果
-function SuccessPulse({ active }: { active: boolean }) {
-  if (!active) return null;
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg">
-      <div 
-        className="absolute inset-0 animate-ping opacity-20"
-        style={{
-          background: 'radial-gradient(circle, rgba(99,102,241,0.5) 0%, transparent 70%)',
-        }}
-      />
     </div>
   );
 }
@@ -120,21 +120,23 @@ export default function PromptRandomizer() {
   const [promptsMap, setPromptsMap] = useState<Record<string, Prompt[]>>({});
   const [slots, setSlots] = useState<Record<string, SlotResult>>({});
   const [loading, setLoading] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [copied, setCopied] = useState(false);
   const [spinningSlots, setSpinningSlots] = useState<Set<string>>(new Set());
   const [showSuccess, setShowSuccess] = useState(false);
   const [revealIndex, setRevealIndex] = useState(-1);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [activeSlotIndex, setActiveSlotIndex] = useState(-1);
   const loadPromiseRef = useRef<Promise<Record<string, Prompt[]>> | null>(null);
 
-  // 添加CSS动画
+  // CSS动画
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
       @keyframes shimmer {
         0% { transform: translateX(-100%); }
-        100% { transform: translateX(100%); }
+        100% { transform: translateX(200%); }
       }
       @keyframes pop {
         0% { transform: scale(0.95); opacity: 0; }
@@ -148,7 +150,7 @@ export default function PromptRandomizer() {
     return () => { document.head.removeChild(style); };
   }, []);
 
-  // 懒加载
+  // 优化后的并行加载
   const loadAllPrompts = useCallback(async (): Promise<Record<string, Prompt[]>> => {
     if (loadPromiseRef.current) {
       return loadPromiseRef.current;
@@ -156,49 +158,32 @@ export default function PromptRandomizer() {
 
     loadPromiseRef.current = (async () => {
       setLoading(true);
+      setLoadProgress(0);
       const map: Record<string, Prompt[]> = {};
 
-      for (const slot of SLOTS) {
-        const allPrompts: Prompt[] = [];
+      // 并行加载所有槽位的数据
+      const loadPromises = SLOTS.map(async (slot, index) => {
+        setActiveSlotIndex(index);
+        setLoadProgress(Math.floor((index / SLOTS.length) * 80)); // 显示进度
+        
+        const prompts = await loadSlotPrompts(slot);
+        return { slot, prompts };
+      });
 
-        if (slot.key === 'charType') {
-          const subCategories = await getSubCategories('appearance');
-          for (const sub of subCategories) {
-            const prompts = await getPromptsByCategory(sub.id);
-            // 过滤出经典形象，但排除"经典女王形象"
-            const classicPrompts = prompts.filter(p => 
-              p.title.includes('经典') && 
-              p.title.includes('形象') &&
-              !p.title.includes('女王')
-            );
-            allPrompts.push(...classicPrompts);
-          }
-        } else if (slot.key === 'pose') {
-          const subCategories = await getSubCategories(slot.categoryIds[0]);
-          for (const sub of subCategories) {
-            if (sub.id === 'pose-combat') continue;
-            const prompts = await getPromptsByCategory(sub.id);
-            allPrompts.push(...prompts);
-          }
-        } else {
-          const subCategories = await getSubCategories(slot.categoryIds[0]);
-          if (subCategories.length > 0) {
-            for (const sub of subCategories) {
-              const prompts = await getPromptsByCategory(sub.id);
-              allPrompts.push(...prompts);
-            }
-          } else {
-            const prompts = await getPromptsByCategory(slot.categoryIds[0]);
-            allPrompts.push(...prompts);
-          }
-        }
-
-        map[slot.key] = allPrompts;
+      // 等待所有槽位加载完成
+      const results = await Promise.all(loadPromises);
+      
+      // 构建结果映射
+      for (const { slot, prompts } of results) {
+        map[slot.key] = prompts;
       }
 
+      setLoadProgress(100);
       setPromptsMap(map);
       setLoading(false);
       setInitialized(true);
+      setActiveSlotIndex(-1);
+      
       return map;
     })();
 
@@ -214,9 +199,9 @@ export default function PromptRandomizer() {
     SLOTS.forEach((slot, index) => {
       const prompts = map[slot.key];
       if (prompts && prompts.length > 0) {
-        const shuffleCount = isFirstLoad ? 8 : 3;
-        const shuffleInterval = isFirstLoad ? 60 : 100;
-        const baseDelay = index * (isFirstLoad ? 250 : 150);
+        const shuffleCount = isFirstLoad ? 5 : 2;
+        const shuffleInterval = isFirstLoad ? 50 : 80;
+        const baseDelay = index * (isFirstLoad ? 200 : 100);
 
         for (let i = 0; i < shuffleCount; i++) {
           setTimeout(() => {
@@ -248,18 +233,18 @@ export default function PromptRandomizer() {
             return next;
           });
           setRevealIndex(index);
-        }, baseDelay + shuffleCount * shuffleInterval + 100);
+        }, baseDelay + shuffleCount * shuffleInterval + 80);
       }
     });
 
-    const totalTime = SLOTS.length * (isFirstLoad ? 250 : 150) + (isFirstLoad ? 8 : 3) * (isFirstLoad ? 60 : 100) + 200;
+    const totalTime = SLOTS.length * (isFirstLoad ? 200 : 100) + (isFirstLoad ? 5 : 2) * (isFirstLoad ? 50 : 80) + 150;
     setTimeout(() => {
       setShowSuccess(true);
       setIsFirstLoad(false);
       setTimeout(() => {
         setShowSuccess(false);
         setRevealIndex(-1);
-      }, 1500);
+      }, 1200);
     }, totalTime);
   }, [isFirstLoad]);
 
@@ -270,7 +255,7 @@ export default function PromptRandomizer() {
 
     setSpinningSlots(prev => new Set(prev).add(key));
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       setTimeout(() => {
         const randomPick = prompts[Math.floor(Math.random() * prompts.length)];
         setSlots(prev => ({
@@ -281,7 +266,7 @@ export default function PromptRandomizer() {
             promptCn: randomPick.promptCn,
           },
         }));
-      }, i * 80);
+      }, i * 60);
     }
 
     setTimeout(() => {
@@ -299,7 +284,7 @@ export default function PromptRandomizer() {
         next.delete(key);
         return next;
       });
-    }, 3 * 80 + 80);
+    }, 2 * 60 + 60);
   }, [promptsMap]);
 
   // 全部随机
@@ -312,7 +297,7 @@ export default function PromptRandomizer() {
     }
   }, [loadAllPrompts, fillSlotsFromMap, initialized, promptsMap]);
 
-  // 复制组合提示词
+  // 复制
   const copyCombined = () => {
     const parts = SLOTS.map(slot => slots[slot.key]?.prompt).filter(Boolean);
     const combined = parts.join(', ');
@@ -324,7 +309,7 @@ export default function PromptRandomizer() {
   return (
     <section className="py-12 border-t border-slate-200">
       <div className="max-w-6xl mx-auto px-6">
-        {/* 标题栏 - 中英双语 */}
+        {/* 标题栏 */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Prompt Mixer · 提示词混合器</h2>
@@ -369,25 +354,25 @@ export default function PromptRandomizer() {
           </div>
         </div>
 
-        {/* 加载状态 */}
-        {loading && !initialized && (
-          <div className="relative">
+        {/* 加载状态 - 显示进度 */}
+        {loading && (
+          <>
             <div className="flex items-center justify-center gap-3 overflow-x-auto pb-4">
-              {SLOTS.map((_, index) => (
+              {SLOTS.map((slot, index) => (
                 <div key={index} className="flex items-center gap-2 flex-shrink-0">
                   <SlotSkeleton index={index} />
                   {index < SLOTS.length - 1 && (
-                    <ChevronRight className="w-5 h-5 text-slate-300" />
+                    <ChevronRight className={`w-5 h-5 ${activeSlotIndex > index ? 'text-indigo-400' : 'text-slate-300'}`} />
                   )}
                 </div>
               ))}
             </div>
-            <LoadingState />
-          </div>
+            <LoadingState progress={loadProgress} />
+          </>
         )}
 
-        {/* 6个槽位 + 箭头 */}
-        {(!loading || initialized) && (
+        {/* 槽位 */}
+        {!loading && (
           <div className="flex items-center justify-center gap-2 overflow-x-auto pb-4">
             {SLOTS.map((slot, index) => {
               const isSpinning = spinningSlots.has(slot.key);
@@ -396,7 +381,6 @@ export default function PromptRandomizer() {
 
               return (
                 <div key={slot.key} className="flex items-center gap-2 flex-shrink-0">
-                  {/* 槽位卡片 - 欧美风格 */}
                   <div
                     className={`relative w-[150px] rounded-lg border p-4 transition-all duration-200 bg-gradient-to-br ${slot.gradient} ${
                       isSpinning
@@ -409,11 +393,7 @@ export default function PromptRandomizer() {
                         ? 'ring-2 ring-indigo-400 ring-offset-1' 
                         : ''
                     }`}
-                    style={{ borderColor: isSpinning ? '#cbd5e1' : slot.border.replace('border-', '').replace('-200', '') }}
                   >
-                    <SuccessPulse active={isRevealed} />
-                    
-                    {/* 分类标签 */}
                     <div className="flex items-center justify-between mb-3 relative z-10">
                       <span 
                         className="text-[11px] font-semibold uppercase tracking-wide"
@@ -430,41 +410,32 @@ export default function PromptRandomizer() {
                               ? 'opacity-30' 
                               : 'opacity-60 hover:opacity-100 hover:bg-white/80'
                           }`}
-                          title="Randomize"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isSpinning ? 'animate-spin' : ''}`} />
                         </button>
                       )}
                     </div>
 
-                    {/* 提示词内容 */}
                     {hasResult ? (
                       <div className={`space-y-1 relative z-10 transition-all duration-150 ${
-                        isSpinning 
-                          ? 'opacity-30' 
-                          : 'opacity-100'
+                        isSpinning ? 'opacity-30' : 'opacity-100'
                       }`}>
-                        <p className="text-sm font-semibold text-slate-800 leading-tight truncate" title={slots[slot.key].title}>
+                        <p className="text-sm font-semibold text-slate-800 leading-tight truncate">
                           {slots[slot.key].title}
                         </p>
-                        <p className="text-xs text-slate-500 leading-snug line-clamp-2" title={slots[slot.key].prompt}>
+                        <p className="text-xs text-slate-500 leading-snug line-clamp-2">
                           {slots[slot.key].prompt}
                         </p>
                       </div>
                     ) : (
                       <div className="h-12 flex items-center justify-center relative z-10">
-                        {isSpinning ? (
-                          <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
-                        ) : (
-                          <span className="text-xs text-slate-300 font-medium">点击开始</span>
-                        )}
+                        <span className="text-xs text-slate-300 font-medium">点击开始</span>
                       </div>
                     )}
                   </div>
 
-                  {/* 箭头连接 */}
                   {index < SLOTS.length - 1 && (
-                    <ChevronRight className={`w-5 h-5 flex-shrink-0 transition-all duration-200 ${
+                    <ChevronRight className={`w-5 h-5 flex-shrink-0 ${
                       isRevealed ? 'text-indigo-400' : 'text-slate-200'
                     }`} />
                   )}
@@ -474,21 +445,17 @@ export default function PromptRandomizer() {
           </div>
         )}
 
-        {/* 组合预览 - 中英双语 */}
+        {/* 组合预览 */}
         {initialized && (
           <div className={`mt-5 p-4 bg-slate-50 border border-slate-200 rounded-lg transition-all duration-300 ${
-            showSuccess 
-              ? 'border-indigo-300 shadow-sm' 
-              : ''
+            showSuccess ? 'border-indigo-300 shadow-sm' : ''
           }`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className={`p-1.5 rounded-md transition-all duration-200 ${
                   showSuccess ? 'bg-indigo-600' : 'bg-slate-200'
                 }`}>
-                  <Sparkles className={`w-4 h-4 transition-all duration-200 ${
-                    showSuccess ? 'text-white' : 'text-slate-500'
-                  }`} />
+                  <Sparkles className={`w-4 h-4 ${showSuccess ? 'text-white' : 'text-slate-500'}`} />
                 </div>
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Combined · 组合结果</span>
               </div>
