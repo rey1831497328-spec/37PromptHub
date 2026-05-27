@@ -7,7 +7,7 @@ import PromptCard from "@/components/PromptCard";
 import CategoryCard from "@/components/CategoryCard";
 import AIPromptGenerator from "@/components/AIPromptGenerator";
 import PromptRandomizer from "@/components/PromptRandomizer";
-import { fetchCategories, fetchTrendingPrompts, searchPrompts, Prompt, Category } from "@/lib/data";
+import { fetchCategories, fetchQualityPrompts, searchPrompts, Prompt, Category } from "@/lib/data";
 import { ArrowRight, Loader2, X } from "lucide-react";
 import Link from "next/link";
 
@@ -39,22 +39,22 @@ function PromptSkeleton() {
 
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [trendingPrompts, setTrendingPrompts] = useState<Prompt[]>([]);
+  const [qualityPrompts, setQualityPrompts] = useState<Prompt[]>([]);
   const [searchResults, setSearchResults] = useState<Prompt[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // 初始加载分类和热门提示词
+  // 初始加载分类和画质增强提示词
   useEffect(() => {
     async function loadData() {
       try {
-        const [cats, trending] = await Promise.all([
+        const [cats, quality] = await Promise.all([
           fetchCategories(),
-          fetchTrendingPrompts(6),
+          fetchQualityPrompts(6),
         ]);
         setCategories(cats);
-        setTrendingPrompts(trending);
+        setQualityPrompts(quality);
       } catch (error) {
         console.error('加载数据失败:', error);
       } finally {
@@ -223,19 +223,19 @@ export default function Home() {
           {/* Random Prompt Combiner */}
           <PromptRandomizer />
 
-          {/* Trending Prompts Section */}
+          {/* Quality Prompts Section */}
           <section className="py-12 border-t border-[#e5e5e5]">
             <div className="max-w-6xl mx-auto px-6">
-              <h2 className="text-lg font-medium text-[#171717] mb-6">热门提示词</h2>
-              {trendingPrompts.length > 0 ? (
+              <h2 className="text-lg font-medium text-[#171717] mb-6">画质增强</h2>
+              {qualityPrompts.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {trendingPrompts.map((prompt) => (
+                  {qualityPrompts.map((prompt) => (
                     <PromptCard key={prompt.id} prompt={prompt} />
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <p className="text-[#a3a3a3]">暂无提示词，请在管理后台添加</p>
+                  <p className="text-[#a3a3a3]">暂无画质增强提示词</p>
                 </div>
               )}
             </div>

@@ -161,6 +161,23 @@ export async function fetchTrendingPrompts(limit: number = 6): Promise<Prompt[]>
   return (data || []).map(mapDbPromptToPrompt);
 }
 
+/** 获取画质增强提示词 */
+export async function fetchQualityPrompts(limit: number = 6): Promise<Prompt[]> {
+  const { data, error } = await supabase
+    .from('prompts')
+    .select('*')
+    .eq('category_id', 'quality')
+    .order('sort_order', { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    console.error('获取画质增强提示词失败:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapDbPromptToPrompt);
+}
+
 /** 按分类获取提示词 */
 export async function getPromptsByCategory(categoryId: string): Promise<Prompt[]> {
   const { data, error } = await supabase
