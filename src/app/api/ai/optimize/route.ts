@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BAZAARLINK_API_KEY = process.env.BAZAARLINK_API_KEY || '';
-const BAZAARLINK_BASE_URL = 'https://bazaarlink.ai/api/v1';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
 export async function POST(request: NextRequest) {
+  if (!OPENROUTER_API_KEY) {
+    return NextResponse.json(
+      { error: 'API Key未配置' },
+      { status: 500 }
+    );
+  }
+
   const body = await request.json();
   const { prompt, language = 'both' } = body;
 
@@ -25,87 +32,58 @@ export async function POST(request: NextRequest) {
 
   const userPrompt = `请优化以下AI绘图提示词："${prompt}"${language === 'zh' ? '，只需要中文版本' : language === 'en' ? '，只需要英文版本' : '，需要中英文双语版本'}`;
 
-  // 尝试重试3次
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      if (!BAZAARLINK_API_KEY) {
-        return NextResponse.json(
-          { error: 'API Key未配置' },
-          { status: 500 }
-        );
-      }
+  try {
+    const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://37prompts.vercel.app',
+        'X-Title': '37PromptHub',
+      },
+      body: JSON.stringify({
+        model: 'nvidia/nemotron-3-nano-3b-instruct:free',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+      }),
+    });
 
-      const response = await fetch(`${BAZAARLINK_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${BAZAARLINK_API_KEY}`,
-          'User-Agent': 'Mozilla/5.0 (compatible; PromptHub/1.0)',
-        },
-        body: JSON.stringify({
-          model: 'auto:free',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 2000,
-        }),
-      });
-
-      // 如果是 Cloudflare 页面，重试
-      if (response.status === 403 || response.status === 503) {
-        const responseText = await response.text();
-        if (responseText.includes('cloudflare') || responseText.includes('Just a moment')) {
-          console.log(`Cloudflare protection detected, retrying (${attempt + 1}/3)...`);
-          // 等待后重试
-          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
-          continue;
-        }
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('BazaarLink API error:', response.status, errorText.substring(0, 200));
-        return NextResponse.json(
-          { error: `AI服务调用失败 (${response.status})` },
-          { status: 500 }
-        );
-      }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content || '';
-
-      // 解析JSON响应
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        return NextResponse.json(
-          { error: 'AI返回格式错误' },
-          { status: 500 }
-        );
-      }
-
-      const result = JSON.parse(jsonMatch[0]);
-      return NextResponse.json({
-        optimizedPrompt: result.optimizedPrompt,
-        optimizedPromptCn: result.optimizedPromptCn,
-        suggestions: result.suggestions || [],
-      });
-    } catch (error) {
-      console.error(`Optimize attempt ${attempt + 1} failed:`, error);
-      if (attempt === 2) {
-        return NextResponse.json(
-          { error: error instanceof Error ? error.message : '服务暂时不可用，请稍后重试' },
-          { status: 500 }
-        );
-      }
-      // 等待后重试
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenRouter API error:', response.status, errorText.substring(0, 200));
+      return NextResponse.json(
+        { error: `AI服务调用失败 (${response.status})` },
+        { status: 500 }
+      );
     }
-  }
 
-  return NextResponse.json(
-    { error: 'AI服务暂时不可用，请稍后重试' },
-    { status: 503 }
-  );
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '';
+
+    // 解析JSON响应
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return NextResponse.json(
+        { error: 'AI返回格式错误' },
+        { status: 500 }
+      );
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    return NextResponse.json({
+      optimizedPrompt: result.optimizedPrompt,
+      optimizedPromptCn: result.optimizedPromptCn,
+      suggestions: result.suggestions || [],
+    });
+  } catch (error) {
+    console.error('OpenRouter API error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : '服务暂时不可用，请稍后重试' },
+      { status: 500 }
+    );
+  }
 }
