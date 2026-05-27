@@ -192,7 +192,6 @@ export default function PromptRandomizer() {
       setPromptsMap(map);
       setLoading(false);
       setInitialized(true);
-      setActiveSlotIndex(-1);
       
       return map;
     })();
