@@ -127,7 +127,6 @@ export default function PromptRandomizer() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [revealIndex, setRevealIndex] = useState(-1);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
-  const [activeSlotIndex, setActiveSlotIndex] = useState(-1);
   const loadPromiseRef = useRef<Promise<Record<string, Prompt[]>> | null>(null);
 
   // CSS动画
@@ -161,11 +160,20 @@ export default function PromptRandomizer() {
       setLoadProgress(0);
       const map: Record<string, Prompt[]> = {};
 
+      // 启动进度条模拟（基于预估时间，约3-4秒完成）
+      const progressInterval = setInterval(() => {
+        setLoadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          // 使用缓入缓出的进度增长，更真实
+          return Math.min(prev + (prev < 30 ? 8 : prev < 60 ? 5 : prev < 80 ? 3 : 2), 90);
+        });
+      }, 100);
+
       // 并行加载所有槽位的数据
-      const loadPromises = SLOTS.map(async (slot, index) => {
-        setActiveSlotIndex(index);
-        setLoadProgress(Math.floor((index / SLOTS.length) * 80)); // 显示进度
-        
+      const loadPromises = SLOTS.map(async (slot) => {
         const prompts = await loadSlotPrompts(slot);
         return { slot, prompts };
       });
@@ -178,6 +186,8 @@ export default function PromptRandomizer() {
         map[slot.key] = prompts;
       }
 
+      // 加载完成，进度条到100%
+      clearInterval(progressInterval);
       setLoadProgress(100);
       setPromptsMap(map);
       setLoading(false);
@@ -362,7 +372,7 @@ export default function PromptRandomizer() {
                 <div key={index} className="flex items-center gap-2 flex-shrink-0">
                   <SlotSkeleton index={index} />
                   {index < SLOTS.length - 1 && (
-                    <ChevronRight className={`w-5 h-5 ${activeSlotIndex > index ? 'text-indigo-400' : 'text-slate-300'}`} />
+                    <ChevronRight className="w-5 h-5 text-slate-300" />
                   )}
                 </div>
               ))}
