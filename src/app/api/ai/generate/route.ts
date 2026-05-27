@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
-// 使用可靠的免费模型 - Llama 3
-const FREE_MODEL = 'meta-llama/llama-3-8b-instruct:free';
+// 使用 DeepSeek Chat 模型
+const FREE_MODEL = 'deepseek/deepseek-chat-v3:free';
 
 export async function POST(request: NextRequest) {
   if (!OPENROUTER_API_KEY) {
