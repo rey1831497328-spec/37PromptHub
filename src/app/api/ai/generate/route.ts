@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
-// 使用可靠的免费模型
-const FREE_MODEL = 'google/gemma-3-4b-it:free';
+// 使用可靠的免费模型 - Llama 3
+const FREE_MODEL = 'meta-llama/llama-3-8b-instruct:free';
 
 export async function POST(request: NextRequest) {
   if (!OPENROUTER_API_KEY) {
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       const errorText = await response.text();
       console.error('OpenRouter API error:', response.status, errorText.substring(0, 500));
       return NextResponse.json(
-        { error: `AI服务调用失败 (${response.status}): ${errorText.substring(0, 100)}` },
+        { error: `AI服务调用失败 (${response.status})` },
         { status: 500 }
       );
     }
