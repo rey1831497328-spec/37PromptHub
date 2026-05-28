@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const inter = Inter({
@@ -23,6 +24,7 @@ export default function RootLayout({
     <html lang="zh-CN" className={inter.variable}>
       <body className="font-sans min-h-screen bg-[#fafafa]">
         {children}
+        <Analytics />
       </body>
     </html>
   );
